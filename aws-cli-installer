@@ -144,14 +144,44 @@ SIG_FILENAME="$ZIP_FILENAME.sig"
 ZIP_URL="https://awscli.amazonaws.com/$ZIP_FILENAME"
 SIG_URL="$ZIP_URL.sig"
 
+function with_backoff {
+  local max_attempts=${ATTEMPTS-5}
+  local timeout=${TIMEOUT-1}
+  local attempt=0
+  local exit_code=0
+
+  set +e
+  while [[ $attempt -lt $max_attempts ]]; do
+    "$@"
+    exit_code=$?
+
+    if [[ $exit_code == 0 ]]; then
+      set -e
+      break
+    fi
+
+    echo "Failure running ($*) [$exit_code]; retrying in $timeout." 1>&2
+    sleep "$timeout"
+    attempt=$((attempt + 1))
+    timeout=$((timeout * 2))
+  done
+
+  if [[ $exit_code != 0 ]]; then
+    echo "Failure running ($*) [$exit_code]; No more retries left." 1>&2
+  fi
+
+  set -e
+  return $exit_code
+}
+
 checklink() {
   linkvalid=""
   case "${NETTOOL}" in
   wget*)
-    linkvalid="$(wget --spider -S "$1" 2>&1 | grep "HTTP/" | awk '{print $2}')"
+    linkvalid="$(with_backoff wget --spider -S "$1" 2>&1 | grep "HTTP/" | awk '{print $2}')"
     ;;
   curl*)
-    linkvalid="$(curl -o /dev/null --silent --head --write-out '%{http_code}\n' "$1")"
+    linkvalid="$(with_backoff curl -o /dev/null --silent --head --write-out '%{http_code}\n' "$1")"
     ;;
   esac
 
@@ -181,10 +211,10 @@ download() {
   # download $1 (URL) to $2 (destination file)
   case "${NETTOOL}" in
   wget*)
-    wget -q "$1" -O "$2"
+    with_backoff wget -q "$1" -O "$2"
     ;;
   curl*)
-    curl -s -o "$2" "$1"
+    with_backoff curl -s -o "$2" "$1"
     ;;
   esac
 }

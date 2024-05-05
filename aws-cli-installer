@@ -35,6 +35,7 @@ Options:
                         /usr/local/bin
     -k, --keep-tmp      Keep temporary files in current directory
     -g, --gpg-check     Verify signature with GPG
+    -u, --uninstall     Uninstall AWS CLI
 EOF
 }
 
@@ -43,6 +44,7 @@ KEEP_TMP_FILES=false
 ROOT_INSTALL_DIR="/opt/aws-cli"
 BIN_DIR="/usr/local/bin"
 GPG_CHECK=false
+UNINSTALL=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -96,6 +98,10 @@ while [[ $# -gt 0 ]]; do
     GPG_CHECK=true
     shift
     ;;
+  -u | --uninstall)
+    UNINSTALL=true
+    shift
+    ;;
   *)
     echo "ERROR: got unexpected argument: '$1'"
     exit 1
@@ -105,6 +111,15 @@ done
 
 EXE_NAME="aws"
 COMPLETER_EXE_NAME="aws_completer"
+
+if [ "$UNINSTALL" = true ]; then
+  [ -n "$ROOT_INSTALL_DIR" ]
+  [ -n "$BIN_DIR" ]
+  rm -rf "$ROOT_INSTALL_DIR"
+  rm "$BIN_DIR/$EXE_NAME"
+  rm "$BIN_DIR/$COMPLETER_EXE_NAME"
+  exit 0
+fi
 
 # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html
 GPG_KEY="

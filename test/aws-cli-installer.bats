@@ -26,11 +26,18 @@ teardown() {
   [[ "${lines[1]}" = "See aws-cli-installer --help for usage." ]]
 }
 
-@test "installs AWS CLI" {
+@test "installs and uninstalls AWS CLI" {
+  # installs
   run aws-cli-installer -i "$PREFIX" -b "$BIN"
   [[ "$status" -eq 0 ]]
   [[ -f "$BIN/aws" ]]
   "$BIN"/aws --version
+
+  # uninstalls
+  run aws-cli-installer -i "$PREFIX" -b "$BIN" --uninstall
+  [[ "$status" -eq 0 ]]
+  [[ ! -f "$BIN/aws" ]]
+  [[ ! -d "$PREFIX/awscli" ]]
 }
 
 @test "-v installs specific AWS CLI version" {

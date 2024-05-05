@@ -22,7 +22,8 @@ Usage: aws-cli-installer [OPTIONS]
 
 Options:
     -h, --help          Display this message
-    -v, --version       Specify AWS CLI version to install
+    -v, --version <version>
+                        Specify AWS CLI version to install
     -i, --install-dir <path>
                         The directory to install the AWS CLI v2. By default,
                         this directory is /opt/aws-cli
@@ -32,6 +33,7 @@ Options:
                         /usr/local/bin
     -k, --keep-tmp      Keep temporary files in current directory
     -g, --gpg-check     Verify signature with GPG
+    -u, --uninstall     Uninstall AWS CLI
 ```
 
 See `aws-cli-installer --help` for the most up-to-date options.

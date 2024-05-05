@@ -235,26 +235,17 @@ unzip -qq -o "$ZIP_FILENAME"
 EXE_NAME="aws"
 COMPLETER_EXE_NAME="aws_completer"
 INSTALLER_DIR="$(readlink -e ./aws)"
-DIST_DIR="$INSTALLER_DIR/dist"
-
-INSTALLER_EXE="$DIST_DIR/$EXE_NAME"
-AWS_EXE_VERSION="$("$INSTALLER_EXE" --version | cut -d ' ' -f 1 | cut -d '/' -f 2)"
-TARGET_DIR="$ROOT_INSTALL_DIR/$AWS_EXE_VERSION"
 
 # copy dist to target version
-mkdir -p "$TARGET_DIR"
-cp -r "$DIST_DIR" "$TARGET_DIR/dist"
-
-# symlink current to specific version
-CURRENT_INSTALL_DIR="$ROOT_INSTALL_DIR/current"
-ln -snf "$TARGET_DIR" "$CURRENT_INSTALL_DIR"
+mkdir -p "$ROOT_INSTALL_DIR"
+cp -a "$INSTALLER_DIR/dist/." "$ROOT_INSTALL_DIR/"
 
 # /bin symlinks to current
 TARGET_BIN_AWS_EXE="$BIN_DIR/$EXE_NAME"
 TARGET_BIN_AWS_COMPLETER_EXE="$BIN_DIR/$COMPLETER_EXE_NAME"
 
-ln -sf "$CURRENT_INSTALL_DIR/dist/$EXE_NAME" "$TARGET_BIN_AWS_EXE"
-ln -sf "$CURRENT_INSTALL_DIR/dist/$COMPLETER_EXE_NAME" "$TARGET_BIN_AWS_COMPLETER_EXE"
+ln -sf "$ROOT_INSTALL_DIR/$EXE_NAME" "$TARGET_BIN_AWS_EXE"
+ln -sf "$ROOT_INSTALL_DIR/$COMPLETER_EXE_NAME" "$TARGET_BIN_AWS_COMPLETER_EXE"
 
 echo "You can now run: $TARGET_BIN_AWS_EXE --version"
 exit 0

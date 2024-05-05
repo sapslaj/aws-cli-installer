@@ -14,9 +14,8 @@ wget https://raw.githubusercontent.com/sapslaj/aws-cli-installer/main/aws-cli-in
 sudo aws-cli-installer
 ```
 
-By default, AWS CLI is installed to `/opt/aws-cli/$VERSION` and a symlink is
-created from `/opt/aws-cli/current` to the current version. Symlinks are
-created in `/usr/local/bin/` for executables.
+By default, AWS CLI is installed to `/opt/aws-cli` Symlinks are created in
+`/usr/local/bin/` for executables.
 
 ```plain
 Usage: aws-cli-installer [OPTIONS]

@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+scriptname=$(basename "$0")
+
+if ! unzip -h 2 &>/dev/null; then
+  echo "ERROR: unzip not installed and required"
+  exit 1
+fi
+
+if curl -h 2 &>/dev/null; then
+  NETTOOL="curl"
+elif wget -h 2 &>/dev/null; then
+  NETTOOL="wget"
+else
+  echo "ERROR: wget or curl not installed and required"
+  exit 1
+fi
+
+usage() {
+  cat 1>&2 <<EOF
+Usage: ${scriptname} [OPTIONS]
+
+Options:
+    -h, --help          Display this message
+    -v, --version       Specify AWS CLI version to install
+    -i, --install-dir <path>
+                        The directory to install the AWS CLI v2. By default,
+                        this directory is /opt/aws-cli
+    -b, --bin-dir <path>
+                        The directory to store symlinks to executables for the
+                        AWS CLI v2. By default, this directory is
+                        /usr/local/bin
+    -k, --keep-tmp      Keep temporary files in current directory
+    -g, --gpg-check     Verify signature with GPG
+EOF
+}
+
+VERSION="latest"
+KEEP_TMP_FILES=false
+ROOT_INSTALL_DIR="/opt/aws-cli"
+BIN_DIR="/usr/local/bin"
+GPG_CHECK=false
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  -h | --help)
+    usage
+    exit
+    ;;
+  -v | --version)
+    if [ -z "$2" ]; then
+      echo 'ERROR: --version missing version parameter'
+      exit 1
+    fi
+    VERSION="$2"
+    shift
+    shift
+    ;;
+  -i | --install-dir)
+    install_dir="${2:-}"
+    if [ -z "$install_dir" ]; then
+      echo 'ERROR: --install-dir requires a parameter'
+      exit 1
+    fi
+    if [ ! -d "$install_dir" ]; then
+      echo "ERROR: --install-dir '$install_dir' does not exist"
+      exit 1
+    fi
+    ROOT_INSTALL_DIR="$(readlink -e "$install_dir")"
+    shift
+    shift
+    ;;
+  -b | --bin-dir)
+    bin_dir="${2:=}"
+    if [ -z "$bin_dir" ]; then
+      echo 'ERROR: --bin-dir requires a parameter'
+      exit 1
+    fi
+    if [ ! -d "$bin_dir" ]; then
+      echo "ERROR: --bin-dir '$bin_dir' does not exist"
+      exit 1
+    fi
+    BIN_DIR="$(readlink -e "$bin_dir")"
+    shift
+    shift
+    ;;
+  -k | --keep-tmp)
+    KEEP_TMP_FILES=true
+    shift
+    ;;
+  -g | --gpg-check)
+    GPG_CHECK=true
+    shift
+    ;;
+  *)
+    echo "ERROR: got unexpected argument: '$1'"
+    exit 1
+    ;;
+  esac
+done
+
+# https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html
+GPG_KEY="
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mQINBF2Cr7UBEADJZHcgusOJl7ENSyumXh85z0TRV0xJorM2B/JL0kHOyigQluUG
+ZMLhENaG0bYatdrKP+3H91lvK050pXwnO/R7fB/FSTouki4ciIx5OuLlnJZIxSzx
+PqGl0mkxImLNbGWoi6Lto0LYxqHN2iQtzlwTVmq9733zd3XfcXrZ3+LblHAgEt5G
+TfNxEKJ8soPLyWmwDH6HWCnjZ/aIQRBTIQ05uVeEoYxSh6wOai7ss/KveoSNBbYz
+gbdzoqI2Y8cgH2nbfgp3DSasaLZEdCSsIsK1u05CinE7k2qZ7KgKAUIcT/cR/grk
+C6VwsnDU0OUCideXcQ8WeHutqvgZH1JgKDbznoIzeQHJD238GEu+eKhRHcz8/jeG
+94zkcgJOz3KbZGYMiTh277Fvj9zzvZsbMBCedV1BTg3TqgvdX4bdkhf5cH+7NtWO
+lrFj6UwAsGukBTAOxC0l/dnSmZhJ7Z1KmEWilro/gOrjtOxqRQutlIqG22TaqoPG
+fYVN+en3Zwbt97kcgZDwqbuykNt64oZWc4XKCa3mprEGC3IbJTBFqglXmZ7l9ywG
+EEUJYOlb2XrSuPWml39beWdKM8kzr1OjnlOm6+lpTRCBfo0wa9F8YZRhHPAkwKkX
+XDeOGpWRj4ohOx0d2GWkyV5xyN14p2tQOCdOODmz80yUTgRpPVQUtOEhXQARAQAB
+tCFBV1MgQ0xJIFRlYW0gPGF3cy1jbGlAYW1hem9uLmNvbT6JAlQEEwEIAD4CGwMF
+CwkIBwIGFQoJCAsCBBYCAwECHgECF4AWIQT7Xbd/1cEYuAURraimMQrMRnJHXAUC
+ZMKcEgUJCSEf3QAKCRCmMQrMRnJHXCilD/4vior9J5tB+icri5WbDudS3ak/ve4q
+XS6ZLm5S8l+CBxy5aLQUlyFhuaaEHDC11fG78OduxatzeHENASYVo3mmKNwrCBza
+NJaeaWKLGQT0MKwBSP5aa3dva8P/4oUP9GsQn0uWoXwNDWfrMbNI8gn+jC/3MigW
+vD3fu6zCOWWLITNv2SJoQlwILmb/uGfha68o4iTBOvcftVRuao6DyqF+CrHX/0j0
+klEDQFMY9M4tsYT7X8NWfI8Vmc89nzpvL9fwda44WwpKIw1FBZP8S0sgDx2xDsxv
+L8kM2GtOiH0cHqFO+V7xtTKZyloliDbJKhu80Kc+YC/TmozD8oeGU2rEFXfLegwS
+zT9N+jB38+dqaP9pRDsi45iGqyA8yavVBabpL0IQ9jU6eIV+kmcjIjcun/Uo8SjJ
+0xQAsm41rxPaKV6vJUn10wVNuhSkKk8mzNOlSZwu7Hua6rdcCaGeB8uJ44AP3QzW
+BNnrjtoN6AlN0D2wFmfE/YL/rHPxU1XwPntubYB/t3rXFL7ENQOOQH0KVXgRCley
+sHMglg46c+nQLRzVTshjDjmtzvh9rcV9RKRoPetEggzCoD89veDA9jPR2Kw6RYkS
+XzYm2fEv16/HRNYt7hJzneFqRIjHW5qAgSs/bcaRWpAU/QQzzJPVKCQNr4y0weyg
+B8HCtGjfod0p1A==
+=gdMc
+-----END PGP PUBLIC KEY BLOCK-----
+"
+
+ARCH="$(uname -m)"
+if [ "$VERSION" = "latest" ]; then
+  ZIP_FILENAME="awscli-exe-linux-$ARCH.zip"
+else
+  ZIP_FILENAME="awscli-exe-linux-$ARCH-$VERSION.zip"
+fi
+SIG_FILENAME="$ZIP_FILENAME.sig"
+
+ZIP_URL="https://awscli.amazonaws.com/$ZIP_FILENAME"
+SIG_URL="$ZIP_URL.sig"
+
+checklink() {
+  linkvalid=""
+  case "${NETTOOL}" in
+  wget*)
+    linkvalid="$(wget --spider -S "$1" 2>&1 | grep "HTTP/" | awk '{print $2}')"
+    ;;
+  curl*)
+    linkvalid="$(curl -o /dev/null --silent --head --write-out '%{http_code}\n' "$1")"
+    ;;
+  esac
+
+  if [[ "$linkvalid" != 200 ]]; then
+    echo -e "ERROR - Download URL '$$1' invalid - $linkvalid"
+    exit 1
+  fi
+}
+
+cleanup() {
+  if [ "$KEEP_TMP_FILES" != true ]; then
+    if [ -f "$ZIP_FILENAME" ]; then
+      rm "$ZIP_FILENAME"
+    fi
+    if [ -f "$SIG_FILENAME" ]; then
+      rm "$SIG_FILENAME"
+    fi
+    if [ -d "./aws" ]; then
+      rm -rf "./aws"
+    fi
+  fi
+}
+
+trap cleanup EXIT
+
+download() {
+  # download $1 (URL) to $2 (destination file)
+  case "${NETTOOL}" in
+  wget*)
+    wget -q "$1" -O "$2"
+    ;;
+  curl*)
+    curl -s -o "$2" "$1"
+    ;;
+  esac
+}
+
+download "$ZIP_URL" "$ZIP_FILENAME"
+
+if [ "$GPG_CHECK" = true ]; then
+  # default gpg command
+  : "${GPG:=gpg}"
+  "$GPG" --import <<<"$GPG_KEY"
+  download "$SIG_URL" "$SIG_FILENAME"
+  "$GPG" --verify "$SIG_FILENAME" "$ZIP_FILENAME"
+fi
+
+# quietly overwrite
+unzip -qq -o "$ZIP_FILENAME"
+
+EXE_NAME="aws"
+COMPLETER_EXE_NAME="aws_completer"
+INSTALLER_DIR="$(readlink -e ./aws)"
+DIST_DIR="$INSTALLER_DIR/dist"
+
+INSTALLER_EXE="$DIST_DIR/$EXE_NAME"
+AWS_EXE_VERSION="$("$INSTALLER_EXE" --version | cut -d ' ' -f 1 | cut -d '/' -f 2)"
+TARGET_DIR="$ROOT_INSTALL_DIR/$AWS_EXE_VERSION"
+
+# copy dist to target version
+mkdir -p "$TARGET_DIR"
+cp -r "$DIST_DIR" "$TARGET_DIR/dist"
+
+# symlink current to specific version
+CURRENT_INSTALL_DIR="$ROOT_INSTALL_DIR/current"
+ln -snf "$TARGET_DIR" "$CURRENT_INSTALL_DIR"
+
+# /bin symlinks to current
+TARGET_BIN_AWS_EXE="$BIN_DIR/$EXE_NAME"
+TARGET_BIN_AWS_COMPLETER_EXE="$BIN_DIR/$COMPLETER_EXE_NAME"
+
+ln -sf "$CURRENT_INSTALL_DIR/dist/$EXE_NAME" "$TARGET_BIN_AWS_EXE"
+ln -sf "$CURRENT_INSTALL_DIR/dist/$COMPLETER_EXE_NAME" "$TARGET_BIN_AWS_COMPLETER_EXE"
+
+echo "You can now run: $TARGET_BIN_AWS_EXE --version"
+exit 0

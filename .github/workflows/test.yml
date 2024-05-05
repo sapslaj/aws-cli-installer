@@ -1,0 +1,11 @@
+name: Test
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bats-core/bats-action@2.0.0
+      - run: bats -r test

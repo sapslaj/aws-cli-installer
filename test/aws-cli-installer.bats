@@ -19,6 +19,13 @@ teardown() {
   [[ "${lines[2]}" =~ "Display this message" ]]
 }
 
+@test "-v with no arg displays version" {
+  run aws-cli-installer -v
+  [[ "$status" -eq 0 ]]
+  [[ "${lines[0]}" =~ "aws-cli-installer v" ]]
+  [[ "${lines[1]}" = "See aws-cli-installer --help for usage." ]]
+}
+
 @test "installs AWS CLI" {
   run aws-cli-installer -i "$PREFIX" -b "$BIN"
   [[ "$status" -eq 0 ]]

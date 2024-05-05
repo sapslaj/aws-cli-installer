@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-scriptname=$(basename "$0")
+SCRIPTNAME="$(basename "$0")"
+SCRIPTVERSION="v1.0.0-dev"
 
 if ! unzip -h 2 &>/dev/null; then
   echo "ERROR: unzip not installed and required"
@@ -19,11 +20,12 @@ fi
 
 usage() {
   cat 1>&2 <<EOF
-Usage: ${scriptname} [OPTIONS]
+Usage: $SCRIPTNAME [OPTIONS]
 
 Options:
     -h, --help          Display this message
-    -v, --version       Specify AWS CLI version to install
+    -v, --version <version>
+                        Specify AWS CLI version to install
     -i, --install-dir <path>
                         The directory to install the AWS CLI v2. By default,
                         this directory is /opt/aws-cli
@@ -49,9 +51,10 @@ while [[ $# -gt 0 ]]; do
     exit
     ;;
   -v | --version)
-    if [ -z "$2" ]; then
-      echo 'ERROR: --version missing version parameter'
-      exit 1
+    if [ -z "${2:-}" ]; then
+      echo "$SCRIPTNAME $SCRIPTVERSION"
+      echo "See $SCRIPTNAME --help for usage."
+      exit 0
     fi
     VERSION="$2"
     shift
@@ -99,6 +102,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   esac
 done
+
+EXE_NAME="aws"
+COMPLETER_EXE_NAME="aws_completer"
 
 # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html
 GPG_KEY="
@@ -186,7 +192,7 @@ checklink() {
   esac
 
   if [[ "$linkvalid" != 200 ]]; then
-    echo -e "ERROR - Download URL '$$1' invalid - $linkvalid"
+    echo -e "ERROR - Download URL '$1' invalid - $linkvalid"
     exit 1
   fi
 }
@@ -232,8 +238,6 @@ fi
 # quietly overwrite
 unzip -qq -o "$ZIP_FILENAME"
 
-EXE_NAME="aws"
-COMPLETER_EXE_NAME="aws_completer"
 INSTALLER_DIR="$(readlink -e ./aws)"
 
 # copy dist to target version

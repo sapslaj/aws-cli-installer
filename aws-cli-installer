@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPTNAME="$(basename "$0")"
-SCRIPTVERSION="v1.0.0-dev"
+scriptname="$(basename "$0")"
+scriptversion="v1.0.0-dev"
 
 if ! unzip -h 2 &>/dev/null; then
   echo "ERROR: unzip not installed and required"
@@ -10,9 +10,9 @@ if ! unzip -h 2 &>/dev/null; then
 fi
 
 if curl -h 2 &>/dev/null; then
-  NETTOOL="curl"
+  nettool="curl"
 elif wget -h 2 &>/dev/null; then
-  NETTOOL="wget"
+  nettool="wget"
 else
   echo "ERROR: wget or curl not installed and required"
   exit 1
@@ -20,7 +20,7 @@ fi
 
 usage() {
   cat 1>&2 <<EOF
-Usage: $SCRIPTNAME [OPTIONS]
+Usage: $scriptname [OPTIONS]
 
 Options:
     -h, --help          Display this message
@@ -40,13 +40,13 @@ Options:
 EOF
 }
 
-VERSION="latest"
-KEEP_TMP_FILES=false
-ROOT_INSTALL_DIR="/opt/aws-cli"
-BIN_DIR="/usr/local/bin"
-GPG_CHECK=false
-GPG_AUTOIMPORT=false
-UNINSTALL=false
+version="latest"
+keep_tmp_files=false
+root_install_dir="/opt/aws-cli"
+bin_dir="/usr/local/bin"
+gpg_check=false
+gpg_autoimport=false
+uninstall=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -56,11 +56,11 @@ while [[ $# -gt 0 ]]; do
     ;;
   -v | --version)
     if [ -z "${2:-}" ]; then
-      echo "$SCRIPTNAME $SCRIPTVERSION"
-      echo "See $SCRIPTNAME --help for usage."
+      echo "$scriptname $scriptversion"
+      echo "See $scriptname --help for usage."
       exit 0
     fi
-    VERSION="$2"
+    version="$2"
     shift
     shift
     ;;
@@ -74,7 +74,7 @@ while [[ $# -gt 0 ]]; do
       echo "ERROR: --install-dir '$install_dir' does not exist"
       exit 1
     fi
-    ROOT_INSTALL_DIR="$(readlink -e "$install_dir")"
+    root_install_dir="$(readlink -e "$install_dir")"
     shift
     shift
     ;;
@@ -88,24 +88,24 @@ while [[ $# -gt 0 ]]; do
       echo "ERROR: --bin-dir '$bin_dir' does not exist"
       exit 1
     fi
-    BIN_DIR="$(readlink -e "$bin_dir")"
+    bin_dir="$(readlink -e "$bin_dir")"
     shift
     shift
     ;;
   -k | --keep-tmp)
-    KEEP_TMP_FILES=true
+    keep_tmp_files=true
     shift
     ;;
   -g | --gpg-check)
-    GPG_CHECK=true
+    gpg_check=true
     shift
     ;;
   --gpg-autoimport)
-    GPG_AUTOIMPORT=true
+    gpg_autoimport=true
     shift
     ;;
   -u | --uninstall)
-    UNINSTALL=true
+    uninstall=true
     shift
     ;;
   *)
@@ -115,20 +115,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-EXE_NAME="aws"
-COMPLETER_EXE_NAME="aws_completer"
+exe_name="aws"
+completer_exe_name="aws_completer"
 
-if [ "$UNINSTALL" = true ]; then
-  [ -n "$ROOT_INSTALL_DIR" ]
-  [ -n "$BIN_DIR" ]
-  rm -rf "$ROOT_INSTALL_DIR"
-  rm "$BIN_DIR/$EXE_NAME"
-  rm "$BIN_DIR/$COMPLETER_EXE_NAME"
+if [ "$uninstall" = true ]; then
+  [ -n "$root_install_dir" ]
+  [ -n "$bin_dir" ]
+  rm -rf "$root_install_dir"
+  rm "$bin_dir/$exe_name"
+  rm "$bin_dir/$completer_exe_name"
   exit 0
 fi
 
 # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html
-GPG_KEY="
+gpg_key="
 -----BEGIN PGP PUBLIC KEY BLOCK-----
 
 mQINBF2Cr7UBEADJZHcgusOJl7ENSyumXh85z0TRV0xJorM2B/JL0kHOyigQluUG
@@ -160,16 +160,16 @@ BfWC9s/USgxchg==
 -----END PGP PUBLIC KEY BLOCK-----
 "
 
-ARCH="$(uname -m)"
-if [ "$VERSION" = "latest" ]; then
-  ZIP_FILENAME="awscli-exe-linux-$ARCH.zip"
+arch="$(uname -m)"
+if [ "$version" = "latest" ]; then
+  zip_filename="awscli-exe-linux-$arch.zip"
 else
-  ZIP_FILENAME="awscli-exe-linux-$ARCH-$VERSION.zip"
+  zip_filename="awscli-exe-linux-$arch-$version.zip"
 fi
-SIG_FILENAME="$ZIP_FILENAME.sig"
+sig_filename="$zip_filename.sig"
 
-ZIP_URL="https://awscli.amazonaws.com/$ZIP_FILENAME"
-SIG_URL="$ZIP_URL.sig"
+zip_url="https://awscli.amazonaws.com/$zip_filename"
+sig_url="$zip_url.sig"
 
 function with_backoff {
   local max_attempts=${ATTEMPTS-5}
@@ -201,30 +201,14 @@ function with_backoff {
   return $exit_code
 }
 
-checklink() {
-  linkvalid=""
-  case "${NETTOOL}" in
-  wget*)
-    linkvalid="$(with_backoff wget --spider -S "$1" 2>&1 | grep "HTTP/" | awk '{print $2}')"
-    ;;
-  curl*)
-    linkvalid="$(with_backoff curl -o /dev/null --silent --head --write-out '%{http_code}\n' "$1")"
-    ;;
-  esac
-
-  if [[ "$linkvalid" != 200 ]]; then
-    echo -e "ERROR - Download URL '$1' invalid - $linkvalid"
-    exit 1
-  fi
-}
-
 cleanup() {
-  if [ "$KEEP_TMP_FILES" != true ]; then
-    if [ -f "$ZIP_FILENAME" ]; then
-      rm "$ZIP_FILENAME"
+  # shellcheck disable=SC2317
+  if [ "$keep_tmp_files" != true ]; then
+    if [ -f "$zip_filename" ]; then
+      rm "$zip_filename"
     fi
-    if [ -f "$SIG_FILENAME" ]; then
-      rm "$SIG_FILENAME"
+    if [ -f "$sig_filename" ]; then
+      rm "$sig_filename"
     fi
     if [ -d "./aws" ]; then
       rm -rf "./aws"
@@ -236,7 +220,7 @@ trap cleanup EXIT
 
 download() {
   # download $1 (URL) to $2 (destination file)
-  case "${NETTOOL}" in
+  case "${nettool}" in
   wget*)
     with_backoff wget -q "$1" -O "$2"
     ;;
@@ -246,36 +230,35 @@ download() {
   esac
 }
 
-download "$ZIP_URL" "$ZIP_FILENAME"
+download "$zip_url" "$zip_filename"
 
-if [ "$GPG_AUTOIMPORT" = true ]; then
-  # default gpg command
-  : "${GPG:=gpg}"
-  "$GPG" --import <<<"$GPG_KEY"
+# default gpg command
+: "${GPG:=gpg}"
+
+if [ "$gpg_autoimport" = true ]; then
+  "$GPG" --import <<<"$gpg_key"
 fi
 
-if [ "$GPG_CHECK" = true ]; then
-  # default gpg command
-  : "${GPG:=gpg}"
-  download "$SIG_URL" "$SIG_FILENAME"
-  "$GPG" --verify "$SIG_FILENAME" "$ZIP_FILENAME"
+if [ "$gpg_check" = true ]; then
+  download "$sig_url" "$sig_filename"
+  "$GPG" --verify "$sig_filename" "$zip_filename"
 fi
 
 # quietly overwrite
-unzip -qq -o "$ZIP_FILENAME"
+unzip -qq -o "$zip_filename"
 
-INSTALLER_DIR="$(readlink -e ./aws)"
+installer_dir="$(readlink -e ./aws)"
 
 # copy dist to target version
-mkdir -p "$ROOT_INSTALL_DIR"
-cp -a "$INSTALLER_DIR/dist/." "$ROOT_INSTALL_DIR/"
+mkdir -p "$root_install_dir"
+cp -a "$installer_dir/dist/." "$root_install_dir/"
 
 # /bin symlinks to current
-TARGET_BIN_AWS_EXE="$BIN_DIR/$EXE_NAME"
-TARGET_BIN_AWS_COMPLETER_EXE="$BIN_DIR/$COMPLETER_EXE_NAME"
+target_bin_aws_exe="$bin_dir/$exe_name"
+target_bin_aws_completer_exe="$bin_dir/$completer_exe_name"
 
-ln -sf "$ROOT_INSTALL_DIR/$EXE_NAME" "$TARGET_BIN_AWS_EXE"
-ln -sf "$ROOT_INSTALL_DIR/$COMPLETER_EXE_NAME" "$TARGET_BIN_AWS_COMPLETER_EXE"
+ln -sf "$root_install_dir/$exe_name" "$target_bin_aws_exe"
+ln -sf "$root_install_dir/$completer_exe_name" "$target_bin_aws_completer_exe"
 
-echo "You can now run: $TARGET_BIN_AWS_EXE --version"
+echo "You can now run: $target_bin_aws_exe --version"
 exit 0

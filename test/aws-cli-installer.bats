@@ -50,7 +50,7 @@ teardown() {
 }
 
 @test "-g checks GPG signature" {
-  run aws-cli-installer -g -i "$PREFIX" -b "$BIN"
+  run aws-cli-installer -g --gpg-autoimport -i "$PREFIX" -b "$BIN"
   [[ "$status" -eq 0 ]]
   [[ "${lines[0]}" =~ "gpg:" ]]
   [[ -f "$BIN/aws" ]]

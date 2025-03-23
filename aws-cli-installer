@@ -35,6 +35,7 @@ Options:
                         /usr/local/bin
     -k, --keep-tmp      Keep temporary files in current directory
     -g, --gpg-check     Verify signature with GPG
+    --gpg-autoimport    Automatically import the AWS CLI Team's GPG key
     -u, --uninstall     Uninstall AWS CLI
 EOF
 }
@@ -44,6 +45,7 @@ KEEP_TMP_FILES=false
 ROOT_INSTALL_DIR="/opt/aws-cli"
 BIN_DIR="/usr/local/bin"
 GPG_CHECK=false
+GPG_AUTOIMPORT=false
 UNINSTALL=false
 
 while [[ $# -gt 0 ]]; do
@@ -96,6 +98,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   -g | --gpg-check)
     GPG_CHECK=true
+    shift
+    ;;
+  --gpg-autoimport)
+    GPG_AUTOIMPORT=true
     shift
     ;;
   -u | --uninstall)
@@ -242,10 +248,15 @@ download() {
 
 download "$ZIP_URL" "$ZIP_FILENAME"
 
-if [ "$GPG_CHECK" = true ]; then
+if [ "$GPG_AUTOIMPORT" = true ]; then
   # default gpg command
   : "${GPG:=gpg}"
   "$GPG" --import <<<"$GPG_KEY"
+fi
+
+if [ "$GPG_CHECK" = true ]; then
+  # default gpg command
+  : "${GPG:=gpg}"
   download "$SIG_URL" "$SIG_FILENAME"
   "$GPG" --verify "$SIG_FILENAME" "$ZIP_FILENAME"
 fi

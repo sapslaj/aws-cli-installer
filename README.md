@@ -33,10 +33,22 @@ Options:
                         /usr/local/bin
     -k, --keep-tmp      Keep temporary files in current directory
     -g, --gpg-check     Verify signature with GPG
+    --gpg-autoimport    Automatically import the AWS CLI Team's GPG key
     -u, --uninstall     Uninstall AWS CLI
 ```
 
 See `aws-cli-installer --help` for the most up-to-date options.
+
+### GPG
+
+This script includes support for verifying the signature of the awscli bundle
+using GnuPG using the `--gpg-check` flag. Using this flag alone, the [PGP
+public key from the AWS CLI
+team](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html)
+must be imported before this script is run. Using the additional
+`--gpg-autoimport` flag will import an inline copy of the public key. I
+recommend using the `--gpg-autoimport` judiciously as the key may change at any
+time without your (or my) knowledge.
 
 ## Why
 

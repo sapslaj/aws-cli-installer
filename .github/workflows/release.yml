@@ -1,0 +1,20 @@
+name: release
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: get version
+        id: get_version
+        run: echo "version=$(perl -nle '/SCRIPTVERSION="(.+?)"/ && print $1' < aws-cli-installer)" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          files: aws-cli-installer
